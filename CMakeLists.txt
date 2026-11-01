@@ -1,0 +1,28 @@
+cmake_minimum_required(VERSION 3.22)
+project(ScratchLab VERSION 0.3.0 LANGUAGES C CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+option(SCRATCH_ENGINE_ONLY "Build engine tests without JUCE" OFF)
+add_executable(engine_tests Tests/EngineTests.cpp)
+target_include_directories(engine_tests PRIVATE Source)
+enable_testing()
+add_test(NAME engine_tests COMMAND engine_tests)
+if(SCRATCH_ENGINE_ONLY)
+ return()
+endif()
+include(FetchContent)
+FetchContent_Declare(JUCE GIT_REPOSITORY https://github.com/juce-framework/JUCE.git GIT_TAG 8.0.6 GIT_SHALLOW TRUE)
+FetchContent_MakeAvailable(JUCE)
+set(formats VST3 Standalone)
+if(APPLE)
+ list(APPEND formats AU)
+endif()
+juce_add_plugin(ScratchLab COMPANY_NAME "Scratch Lab" BUNDLE_ID "audio.scratchlab.instrument"
+ PLUGIN_MANUFACTURER_CODE ScLb PLUGIN_CODE ScL3 PRODUCT_NAME "Scratch Lab"
+ IS_SYNTH TRUE NEEDS_MIDI_INPUT TRUE NEEDS_MIDI_OUTPUT FALSE IS_MIDI_EFFECT FALSE
+ EDITOR_WANTS_KEYBOARD_FOCUS TRUE VST3_CATEGORIES Instrument Sampler
+ COPY_PLUGIN_AFTER_BUILD FALSE FORMATS ${formats})
+juce_generate_juce_header(ScratchLab)
+target_sources(ScratchLab PRIVATE Source/Plugin.cpp)
+target_compile_definitions(ScratchLab PUBLIC JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
+target_link_libraries(ScratchLab PRIVATE juce::juce_audio_utils PUBLIC juce::juce_recommended_config_flags)

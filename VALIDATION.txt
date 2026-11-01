@@ -1,0 +1,1 @@
+2026-11-01: g++ engine tests PASS: 20 patterns, finite stereo, isolated slices, repeat/release, clean duration at 44100/48000/96000 Hz, full phrase and unchanged clean interior. Windows/macOS CI has NOT been executed. Full native build pending.
