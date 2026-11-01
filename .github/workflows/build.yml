@@ -1,0 +1,48 @@
+name: Build Scratch Lab
+on: [push, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Windows
+        if: runner.os == 'Windows'
+        run: cmake -S . -B build -A x64
+      - name: Configure macOS universal
+        if: runner.os == 'macOS'
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release '-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64' -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+      - name: Build
+        run: cmake --build build --config Release --parallel 2
+      - name: Engine tests
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Package Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist
+          Copy-Item -Recurse 'build/ScratchLab_artefacts/Release/VST3/Scratch Lab.vst3' dist/
+          Copy-Item 'build/ScratchLab_artefacts/Release/Standalone/Scratch Lab.exe' dist/
+          Copy-Item README.txt dist/
+          Compress-Archive -Path dist/* -DestinationPath ScratchLab-Windows-x64.zip
+      - name: Package macOS
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p dist
+          ditto 'build/ScratchLab_artefacts/Release/VST3/Scratch Lab.vst3' 'dist/Scratch Lab.vst3'
+          ditto 'build/ScratchLab_artefacts/Release/AU/Scratch Lab.component' 'dist/Scratch Lab.component'
+          ditto 'build/ScratchLab_artefacts/Release/Standalone/Scratch Lab.app' 'dist/Scratch Lab.app'
+          for f in dist/*; do codesign --force --deep --sign - "$f"; done
+          lipo -verify_arch arm64 x86_64 'dist/Scratch Lab.vst3/Contents/MacOS/Scratch Lab'
+          cp README.txt dist/
+          ditto -c -k --sequesterRsrc --keepParent dist ScratchLab-macOS-universal.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ScratchLab-${{ runner.os }}
+          path: ScratchLab-*.zip
+          if-no-files-found: error
